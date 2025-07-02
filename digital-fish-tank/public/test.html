@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fish Tank Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #001122; color: white; }
+        .status { margin: 10px 0; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; }
+        .success { background: rgba(0,255,0,0.2); }
+        .error { background: rgba(255,0,0,0.2); }
+        .warning { background: rgba(255,255,0,0.2); }
+    </style>
+</head>
+<body>
+    <h1>🐠 Fish Tank Debug Test</h1>
+    <div id="status">Testing dependencies...</div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r149/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.20.0/cannon.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"></script>
+    
+    <script>
+        function addStatus(message, type = 'status') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerHTML = `${new Date().toLocaleTimeString()} - ${message}`;
+            document.getElementById('status').appendChild(div);
+            console.log(message);
+        }
+        
+        function testDependencies() {
+            addStatus('🔍 Starting dependency test...');
+            
+            // Test Three.js
+            if (typeof THREE !== 'undefined') {
+                addStatus('✅ Three.js loaded successfully', 'success');
+                addStatus(`📦 Three.js version: ${THREE.REVISION}`, 'success');
+            } else {
+                addStatus('❌ Three.js not loaded', 'error');
+            }
+            
+            // Test Cannon.js
+            if (typeof CANNON !== 'undefined') {
+                addStatus('✅ Cannon.js loaded successfully', 'success');
+                try {
+                    const world = new CANNON.World();
+                    addStatus('🌍 Cannon.js physics world created', 'success');
+                } catch (e) {
+                    addStatus('⚠️ Cannon.js loaded but world creation failed: ' + e.message, 'warning');
+                }
+            } else {
+                addStatus('❌ Cannon.js not loaded', 'error');
+            }
+            
+            // Test Socket.IO
+            if (typeof io !== 'undefined') {
+                addStatus('✅ Socket.IO loaded successfully', 'success');
+            } else {
+                addStatus('❌ Socket.IO not loaded', 'error');
+            }
+            
+            // Test WebGL
+            try {
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                if (gl) {
+                    addStatus('✅ WebGL supported', 'success');
+                    addStatus(`🎮 WebGL vendor: ${gl.getParameter(gl.VENDOR)}`, 'success');
+                    addStatus(`🎮 WebGL renderer: ${gl.getParameter(gl.RENDERER)}`, 'success');
+                } else {
+                    addStatus('❌ WebGL not supported', 'error');
+                }
+            } catch (e) {
+                addStatus('❌ WebGL test failed: ' + e.message, 'error');
+            }
+            
+            // Test server connection
+            if (typeof io !== 'undefined') {
+                addStatus('🔌 Testing server connection...', 'warning');
+                try {
+                    const socket = io('http://localhost:3002', {
+                        timeout: 5000,
+                        forceNew: true
+                    });
+                    
+                    socket.on('connect', () => {
+                        addStatus('✅ Server connection successful', 'success');
+                        socket.disconnect();
+                    });
+                    
+                    socket.on('connect_error', (error) => {
+                        addStatus('❌ Server connection failed: ' + error.message, 'error');
+                    });
+                    
+                    setTimeout(() => {
+                        if (!socket.connected) {
+                            addStatus('⏱️ Server connection timeout', 'warning');
+                            socket.disconnect();
+                        }
+                    }, 6000);
+                    
+                } catch (e) {
+                    addStatus('❌ Socket.IO connection test failed: ' + e.message, 'error');
+                }
+            }
+        }
+        
+        // Wait for all scripts to load
+        window.addEventListener('load', () => {
+            setTimeout(testDependencies, 1000);
+        });
+    </script>
+</body>
+</html>

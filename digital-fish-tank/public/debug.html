@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cannon.js Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #001122; color: white; }
+        .test { margin: 15px 0; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 5px; }
+        .success { background: rgba(0,255,0,0.2); }
+        .error { background: rgba(255,0,0,0.2); }
+        .warning { background: rgba(255,255,0,0.2); }
+        pre { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 3px; overflow-x: auto; }
+        button { background: #4ecdc4; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer; margin: 5px; }
+        button:hover { background: #45b7d1; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Cannon.js/Cannon-ES Debug Test</h1>
+    <div id="results">Testing...</div>
+    
+    <div class="test">
+        <h3>Manual URL Tests</h3>
+        <button onclick="testURL('https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js')">Test unpkg cannon-es</button>
+        <button onclick="testURL('https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js')">Test jsdelivr cannon-es</button>
+        <button onclick="testURL('https://unpkg.com/cannon@0.20.0/build/cannon.min.js')">Test unpkg cannon (old)</button>
+        <button onclick="testURL('/libs/cannon-es.js')">Test Local cannon-es</button>
+        <button onclick="testURL('/libs/three.min.js')">Test Local Three.js</button>
+    </div>
+    
+    <script>
+        let testResults = [];
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            testResults.push(`${timestamp} [${type.toUpperCase()}] ${message}`);
+            updateResults();
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        function updateResults() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = testResults.map(result => {
+                const div = document.createElement('div');
+                div.textContent = result;
+                if (result.includes('[ERROR]')) div.className = 'test error';
+                else if (result.includes('[SUCCESS]')) div.className = 'test success';
+                else if (result.includes('[WARN]')) div.className = 'test warning';
+                else div.className = 'test';
+                return div.outerHTML;
+            }).join('');
+        }
+        
+        function testURL(url) {
+            log(`Testing URL: ${url}`, 'info');
+            
+            const script = document.createElement('script');
+            script.src = url;
+            
+            const timeout = setTimeout(() => {
+                log(`❌ TIMEOUT loading ${url}`, 'error');
+                document.head.removeChild(script);
+            }, 10000);
+            
+            script.onload = () => {
+                clearTimeout(timeout);
+                log(`✅ Successfully loaded ${url}`, 'success');
+                
+                // Check what global variables are available
+                const globals = [];
+                if (typeof THREE !== 'undefined') globals.push('THREE');
+                if (typeof CANNON !== 'undefined') globals.push('CANNON');
+                if (typeof io !== 'undefined') globals.push('io');
+                
+                log(`Available globals after loading: ${globals.join(', ') || 'none'}`, 'info');
+                
+                // Try to create a physics world if CANNON is available
+                if (typeof CANNON !== 'undefined') {
+                    try {
+                        const world = new CANNON.World();
+                        log(`🌍 Successfully created CANNON.World()`, 'success');
+                    } catch (e) {
+                        log(`❌ Failed to create CANNON.World(): ${e.message}`, 'error');
+                    }
+                }
+                
+                document.head.removeChild(script);
+            };
+            
+            script.onerror = (e) => {
+                clearTimeout(timeout);
+                log(`❌ Failed to load ${url} - ${e.message || 'Network error'}`, 'error');
+                document.head.removeChild(script);
+            };
+            
+            document.head.appendChild(script);
+        }
+        
+        // Auto-run comprehensive tests
+        function runAllTests() {
+            log('🚀 Starting comprehensive Cannon.js tests...', 'info');
+            
+            // Test 1: Check local file accessibility
+            fetch('/libs/cannon-es.js', { method: 'HEAD' })
+                .then(response => {
+                    if (response.ok) {
+                        log(`✅ Local cannon-es.js is accessible (${response.status})`, 'success');
+                    } else {
+                        log(`❌ Local cannon-es.js not accessible (${response.status})`, 'error');
+                    }
+                })
+                .catch(e => {
+                    log(`❌ Local cannon-es.js fetch failed: ${e.message}`, 'error');
+                });
+            
+            // Test 2: Check Three.js (control test)
+            fetch('/libs/three.min.js', { method: 'HEAD' })
+                .then(response => {
+                    if (response.ok) {
+                        log(`✅ Local three.min.js is accessible (${response.status})`, 'success');
+                    } else {
+                        log(`❌ Local three.min.js not accessible (${response.status})`, 'error');
+                    }
+                })
+                .catch(e => {
+                    log(`❌ Local three.min.js fetch failed: ${e.message}`, 'error');
+                });
+            
+            // Test 3: Check network connectivity
+            fetch('https://httpbin.org/status/200')
+                .then(response => {
+                    log(`✅ Network connectivity OK`, 'success');
+                })
+                .catch(e => {
+                    log(`❌ Network connectivity issue: ${e.message}`, 'error');
+                });
+            
+            // Test 4: Check specific CDN endpoints
+            const testUrls = [
+                'https://unpkg.com/cannon-es@0.20.0/package.json',
+                'https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/package.json'
+            ];
+            
+            testUrls.forEach(url => {
+                fetch(url)
+                    .then(response => response.json())
+                    .then(data => {
+                        log(`✅ CDN endpoint accessible: ${url} (version: ${data.version})`, 'success');
+                    })
+                    .catch(e => {
+                        log(`❌ CDN endpoint failed: ${url} - ${e.message}`, 'error');
+                    });
+            });
+            
+            // Test 5: Browser capabilities
+            log(`Browser: ${navigator.userAgent}`, 'info');
+            log(`JavaScript enabled: ${typeof window !== 'undefined'}`, 'info');
+            
+            // Test 6: Security policies
+            if (document.location.protocol === 'file:') {
+                log(`⚠️ Running from file:// protocol - this may cause CORS issues`, 'warn');
+            }
+            
+            // Test 7: Try to find working cannon-es versions
+            const versions = ['0.20.0', '0.19.0', '0.18.0', '0.17.0'];
+            log(`🔍 Testing cannon-es versions: ${versions.join(', ')}`, 'info');
+            
+            versions.forEach((version, index) => {
+                setTimeout(() => {
+                    const url = `https://unpkg.com/cannon-es@${version}/package.json`;
+                    fetch(url)
+                        .then(response => response.json())
+                        .then(data => {
+                            log(`✅ cannon-es@${version} exists on unpkg`, 'success');
+                            // Try to load the actual JS file
+                            const jsUrl = `https://unpkg.com/cannon-es@${version}/dist/cannon-es.js`;
+                            testURL(jsUrl);
+                        })
+                        .catch(e => {
+                            log(`❌ cannon-es@${version} not found on unpkg`, 'error');
+                        });
+                }, index * 1000);
+            });
+        }
+        
+        // Start tests when page loads
+        window.addEventListener('load', () => {
+            setTimeout(runAllTests, 500);
+        });
+    </script>
+</body>
+</html>

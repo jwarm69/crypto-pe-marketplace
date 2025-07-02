@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Fish Tank - Fixed</title>
+    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Load libraries directly with simple script tags -->
+    <script src="/libs/three.min.js"></script>
+    <script>
+        // Check if Three.js loaded
+        if (typeof THREE !== 'undefined') {
+            console.log('✅ Three.js loaded successfully');
+        } else {
+            console.error('❌ Three.js failed to load');
+        }
+    </script>
+    
+    <!-- Try cannon-es first, then fallback to basic mode -->
+    <script src="/libs/cannon-es.js" onerror="console.warn('⚠️ Cannon-ES failed, will run in basic mode')"></script>
+    <script>
+        // Check if Cannon-ES loaded
+        window.hasPhysics = typeof CANNON !== 'undefined';
+        if (window.hasPhysics) {
+            console.log('✅ Cannon-ES loaded successfully');
+        } else {
+            console.warn('⚠️ Cannon-ES not available, running in basic mode');
+        }
+    </script>
+</head>
+<body>
+    <div id="loading">
+        <div class="loading-content">
+            <div class="fish-loading">🐠</div>
+            <h2>Loading Your Aquarium...</h2>
+            <p id="loading-progress">Starting fish tank...</p>
+            <div class="loading-spinner"></div>
+        </div>
+    </div>
+
+    <div id="game-container" style="display: none;">
+        <!-- 3D Canvas -->
+        <div id="canvas-container"></div>
+        
+        <!-- UI Overlay -->
+        <div id="ui-overlay">
+            <!-- Top Status Bar -->
+            <div id="status-bar">
+                <div class="status-section">
+                    <h3 id="tank-name">My Aquarium</h3>
+                    <div class="stats">
+                        <span class="stat">💰 <span id="aqua-coins">500</span></span>
+                        <span class="stat">⭐ Level <span id="player-level">1</span></span>
+                        <span class="stat" id="physics-status">🔧 Basic Mode</span>
+                    </div>
+                </div>
+                <div class="status-section">
+                    <div class="tank-stats">
+                        <span class="stat">🌡️ <span id="temperature">24°C</span></span>
+                        <span class="stat">✨ Clean: <span id="cleanliness">90%</span></span>
+                        <span class="stat">🐠 Fish: <span id="fish-count">1</span></span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Left Panel - Actions -->
+            <div id="left-panel" class="panel">
+                <div class="panel-header">
+                    <h3>🎮 Actions</h3>
+                </div>
+                <div class="action-buttons">
+                    <button id="feed-btn" class="action-btn">🍽️ Feed</button>
+                    <button id="clean-btn" class="action-btn">🧽 Clean</button>
+                    <button id="add-fish-btn" class="action-btn">🐠 Add Fish</button>
+                    <button id="physics-toggle" class="action-btn">⚙️ Physics</button>
+                </div>
+            </div>
+            
+            <!-- Bottom Panel - Messages -->
+            <div id="bottom-panel" class="panel">
+                <div id="message-log">
+                    <div class="message">🐠 Welcome to your digital aquarium!</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        console.log('🚀 Starting simple fixed fish tank...');
+        
+        class FishTank {
+            constructor() {
+                this.scene = null;
+                this.camera = null;
+                this.renderer = null;
+                this.world = null; // Physics world (if available)
+                this.fish = [];
+                this.hasPhysics = window.hasPhysics;
+                
+                this.init();
+            }
+            
+            init() {
+                console.log(`🎨 Creating fish tank (Physics: ${this.hasPhysics ? 'ON' : 'OFF'})`);
+                
+                // Check Three.js
+                if (typeof THREE === 'undefined') {
+                    this.showError('Three.js library is required but not loaded');
+                    return;
+                }
+                
+                this.setupScene();
+                this.setupPhysics();
+                this.createTank();
+                this.createFish();
+                this.setupUI();
+                this.animate();
+                
+                // Update status display
+                const physicsStatus = document.getElementById('physics-status');
+                if (physicsStatus) {
+                    physicsStatus.innerHTML = this.hasPhysics ? '⚡ Physics ON' : '🔧 Basic Mode';
+                }
+                
+                // Hide loading
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('game-container').style.display = 'block';
+                
+                this.addMessage(`✅ Fish tank loaded! Mode: ${this.hasPhysics ? 'Physics' : 'Basic'}`);
+                console.log('✅ Fish tank running successfully!');
+            }
+            
+            setupScene() {
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0x001122);
+                
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                this.camera.position.set(0, 5, 15);
+                
+                this.renderer = new THREE.WebGLRenderer({ antialias: true });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                
+                const container = document.getElementById('canvas-container');
+                container.appendChild(this.renderer.domElement);
+                
+                // Lights
+                const ambientLight = new THREE.AmbientLight(0x4488aa, 0.6);
+                this.scene.add(ambientLight);
+                
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+                directionalLight.position.set(0, 10, 5);
+                this.scene.add(directionalLight);
+            }
+            
+            setupPhysics() {
+                if (this.hasPhysics && typeof CANNON !== 'undefined') {
+                    try {
+                        this.world = new CANNON.World({
+                            gravity: new CANNON.Vec3(0, 0, 0) // No gravity in water
+                        });
+                        console.log('🌍 Physics world created successfully');
+                    } catch (e) {
+                        console.error('❌ Failed to create physics world:', e);
+                        this.hasPhysics = false;
+                        this.world = null;
+                    }
+                } else {
+                    console.log('🔧 Running without physics');
+                    this.world = null;
+                }
+            }
+            
+            createTank() {
+                // Tank walls (same as before)
+                const wallMaterial = new THREE.MeshBasicMaterial({ 
+                    color: 0x88ccff, 
+                    transparent: true, 
+                    opacity: 0.1,
+                    side: THREE.DoubleSide
+                });
+                
+                // Create walls
+                const walls = [
+                    { pos: [0, 0, 6], rot: [0, 0, 0], size: [20, 12] },  // Front
+                    { pos: [0, 0, -6], rot: [0, Math.PI, 0], size: [20, 12] },  // Back
+                    { pos: [-10, 0, 0], rot: [0, Math.PI/2, 0], size: [12, 12] },  // Left
+                    { pos: [10, 0, 0], rot: [0, -Math.PI/2, 0], size: [12, 12] },  // Right
+                    { pos: [0, -6, 0], rot: [-Math.PI/2, 0, 0], size: [20, 12] }   // Bottom
+                ];
+                
+                walls.forEach(wall => {
+                    const wallMesh = new THREE.Mesh(new THREE.PlaneGeometry(...wall.size), wallMaterial);
+                    wallMesh.position.set(...wall.pos);
+                    wallMesh.rotation.set(...wall.rot);
+                    this.scene.add(wallMesh);
+                });
+                
+                this.createDecorations();
+            }
+            
+            createDecorations() {
+                // Plant
+                const plantGeometry = new THREE.ConeGeometry(0.5, 3, 8);
+                const plantMaterial = new THREE.MeshStandardMaterial({ color: 0x2d5016 });
+                const plant = new THREE.Mesh(plantGeometry, plantMaterial);
+                plant.position.set(-6, -4, -4);
+                this.scene.add(plant);
+                
+                // Rock
+                const rockGeometry = new THREE.DodecahedronGeometry(1);
+                const rockMaterial = new THREE.MeshStandardMaterial({ color: 0x666666 });
+                const rock = new THREE.Mesh(rockGeometry, rockMaterial);
+                rock.position.set(6, -4, 3);
+                this.scene.add(rock);
+            }
+            
+            createFish() {
+                const fish = this.createSingleFish();
+                fish.position.set(0, 0, 0);
+                
+                if (this.hasPhysics && this.world) {
+                    // Create physics body
+                    const shape = new CANNON.Sphere(0.5);
+                    const body = new CANNON.Body({ mass: 1 });
+                    body.addShape(shape);
+                    body.position.set(0, 0, 0);
+                    this.world.addBody(body);
+                    
+                    fish.userData = {
+                        body: body,
+                        hasPhysics: true,
+                        speed: 2,
+                        bounds: { x: 8, y: 4, z: 4 }
+                    };
+                } else {
+                    // Basic movement without physics
+                    fish.userData = {
+                        direction: new THREE.Vector3(1, 0, 0),
+                        speed: 0.02,
+                        turnSpeed: 0.01,
+                        bounds: { x: 8, y: 4, z: 4 },
+                        hasPhysics: false
+                    };
+                }
+                
+                this.fish.push(fish);
+                this.scene.add(fish);
+            }
+            
+            createSingleFish() {
+                const fishGroup = new THREE.Group();
+                
+                // Body
+                const bodyGeometry = new THREE.ConeGeometry(0.3, 1.5, 6);
+                const fishMaterial = new THREE.MeshStandardMaterial({ color: 0xff6b6b });
+                const body = new THREE.Mesh(bodyGeometry, fishMaterial);
+                body.rotation.z = Math.PI / 2;
+                fishGroup.add(body);
+                
+                // Tail
+                const tailGeometry = new THREE.ConeGeometry(0.2, 0.8, 3);
+                const tailMaterial = new THREE.MeshStandardMaterial({ 
+                    color: 0xff6b6b, 
+                    transparent: true, 
+                    opacity: 0.7 
+                });
+                const tail = new THREE.Mesh(tailGeometry, tailMaterial);
+                tail.position.x = -0.7;
+                tail.rotation.z = Math.PI / 2;
+                tail.scale.set(0.5, 0.5, 0.5);
+                fishGroup.add(tail);
+                
+                return fishGroup;
+            }
+            
+            setupUI() {
+                document.getElementById('feed-btn').onclick = () => this.feedFish();
+                document.getElementById('clean-btn').onclick = () => this.cleanTank();
+                document.getElementById('add-fish-btn').onclick = () => this.addFish();
+                document.getElementById('physics-toggle').onclick = () => this.togglePhysicsInfo();
+                
+                window.addEventListener('resize', () => this.onWindowResize());
+            }
+            
+            togglePhysicsInfo() {
+                const info = this.hasPhysics ? 
+                    'Physics Mode: Realistic fish movement with collision detection' :
+                    'Basic Mode: Simple animations without physics engine';
+                this.addMessage(`ℹ️ ${info}`);
+            }
+            
+            feedFish() {
+                if (this.fish.length > 0) {
+                    this.addMessage('🍽️ Fed your fish!');
+                    this.createFoodParticles(this.fish[0].position);
+                }
+            }
+            
+            cleanTank() {
+                this.addMessage('🧽 Tank cleaned!');
+            }
+            
+            addFish() {
+                if (this.fish.length < 5) {
+                    const newFish = this.createSingleFish();
+                    newFish.position.set(
+                        (Math.random() - 0.5) * 8,
+                        (Math.random() - 0.5) * 4,
+                        (Math.random() - 0.5) * 4
+                    );
+                    
+                    if (this.hasPhysics && this.world) {
+                        // Physics version
+                        const shape = new CANNON.Sphere(0.5);
+                        const body = new CANNON.Body({ mass: 1 });
+                        body.addShape(shape);
+                        body.position.copy(newFish.position);
+                        this.world.addBody(body);
+                        
+                        newFish.userData = {
+                            body: body,
+                            hasPhysics: true,
+                            speed: 1 + Math.random(),
+                            bounds: { x: 8, y: 4, z: 4 }
+                        };
+                    } else {
+                        // Basic version
+                        newFish.userData = {
+                            direction: new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5).normalize(),
+                            speed: 0.01 + Math.random() * 0.02,
+                            turnSpeed: 0.005 + Math.random() * 0.01,
+                            bounds: { x: 8, y: 4, z: 4 },
+                            hasPhysics: false
+                        };
+                    }
+                    
+                    // Random color
+                    const colors = [0xff6b6b, 0x4ecdc4, 0x45b7d1, 0xf9ca24, 0x6c5ce7];
+                    const color = colors[Math.floor(Math.random() * colors.length)];
+                    newFish.children[0].material.color.setHex(color);
+                    newFish.children[1].material.color.setHex(color);
+                    
+                    this.fish.push(newFish);
+                    this.scene.add(newFish);
+                    
+                    document.getElementById('fish-count').textContent = this.fish.length;
+                    this.addMessage(`🐠 Added new fish! Total: ${this.fish.length}`);
+                } else {
+                    this.addMessage('❗ Tank is full! (Max 5 fish)');
+                }
+            }
+            
+            createFoodParticles(position) {
+                for (let i = 0; i < 10; i++) {
+                    const particle = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.05),
+                        new THREE.MeshBasicMaterial({ color: 0xffaa00 })
+                    );
+                    
+                    particle.position.copy(position);
+                    particle.position.y += 2;
+                    particle.position.x += (Math.random() - 0.5) * 1;
+                    particle.position.z += (Math.random() - 0.5) * 1;
+                    
+                    this.scene.add(particle);
+                    
+                    // Animate falling
+                    const animate = () => {
+                        particle.position.y -= 0.1;
+                        particle.rotation.x += 0.1;
+                        particle.rotation.y += 0.1;
+                        
+                        if (particle.position.y > position.y - 1) {
+                            requestAnimationFrame(animate);
+                        } else {
+                            this.scene.remove(particle);
+                        }
+                    };
+                    setTimeout(() => animate(), i * 100);
+                }
+            }
+            
+            updateFish() {
+                this.fish.forEach(fish => {
+                    const userData = fish.userData;
+                    
+                    if (userData.hasPhysics && userData.body) {
+                        // Physics-based movement
+                        fish.position.copy(userData.body.position);
+                        fish.quaternion.copy(userData.body.quaternion);
+                        
+                        // Apply swimming forces
+                        const force = new CANNON.Vec3(
+                            (Math.random() - 0.5) * userData.speed,
+                            (Math.random() - 0.5) * userData.speed * 0.5,
+                            (Math.random() - 0.5) * userData.speed
+                        );
+                        userData.body.applyForce(force);
+                        
+                        // Keep in bounds
+                        if (Math.abs(userData.body.position.x) > userData.bounds.x) {
+                            userData.body.position.x = Math.sign(userData.body.position.x) * userData.bounds.x;
+                            userData.body.velocity.x *= -0.5;
+                        }
+                        if (Math.abs(userData.body.position.y) > userData.bounds.y) {
+                            userData.body.position.y = Math.sign(userData.body.position.y) * userData.bounds.y;
+                            userData.body.velocity.y *= -0.5;
+                        }
+                        if (Math.abs(userData.body.position.z) > userData.bounds.z) {
+                            userData.body.position.z = Math.sign(userData.body.position.z) * userData.bounds.z;
+                            userData.body.velocity.z *= -0.5;
+                        }
+                        
+                    } else {
+                        // Basic movement (same as before)
+                        const movement = userData.direction.clone().multiplyScalar(userData.speed);
+                        fish.position.add(movement);
+                        
+                        // Bounce off walls
+                        if (Math.abs(fish.position.x) > userData.bounds.x) {
+                            userData.direction.x *= -1;
+                            fish.position.x = Math.sign(fish.position.x) * userData.bounds.x;
+                        }
+                        if (Math.abs(fish.position.y) > userData.bounds.y) {
+                            userData.direction.y *= -1;
+                            fish.position.y = Math.sign(fish.position.y) * userData.bounds.y;
+                        }
+                        if (Math.abs(fish.position.z) > userData.bounds.z) {
+                            userData.direction.z *= -1;
+                            fish.position.z = Math.sign(fish.position.z) * userData.bounds.z;
+                        }
+                        
+                        // Random direction changes
+                        if (Math.random() < 0.01) {
+                            userData.direction.add(new THREE.Vector3(
+                                (Math.random() - 0.5) * userData.turnSpeed,
+                                (Math.random() - 0.5) * userData.turnSpeed * 0.5,
+                                (Math.random() - 0.5) * userData.turnSpeed
+                            ));
+                            userData.direction.normalize();
+                        }
+                        
+                        // Face movement direction
+                        fish.lookAt(fish.position.clone().add(userData.direction));
+                    }
+                });
+            }
+            
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                
+                // Update physics world if available
+                if (this.hasPhysics && this.world) {
+                    this.world.step(1/60);
+                }
+                
+                this.updateFish();
+                this.renderer.render(this.scene, this.camera);
+            }
+            
+            onWindowResize() {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+            
+            addMessage(message) {
+                const messageLog = document.getElementById('message-log');
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message';
+                messageDiv.textContent = message;
+                
+                messageLog.appendChild(messageDiv);
+                messageLog.scrollTop = messageLog.scrollHeight;
+                
+                // Keep last 5 messages
+                while (messageLog.children.length > 5) {
+                    messageLog.removeChild(messageLog.firstChild);
+                }
+            }
+            
+            showError(message) {
+                const loading = document.getElementById('loading');
+                loading.innerHTML = `
+                    <div class="loading-content">
+                        <div style="color: #ff4757; text-align: center;">
+                            <h3>❌ Error</h3>
+                            <p>${message}</p>
+                            <button onclick="location.reload()" style="
+                                background: #ff6b35; 
+                                color: white; 
+                                border: none; 
+                                padding: 10px 20px; 
+                                border-radius: 5px; 
+                                cursor: pointer; 
+                                margin-top: 15px;
+                            ">🔄 Reload</button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        // Start when page loads
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                try {
+                    new FishTank();
+                } catch (error) {
+                    console.error('❌ Failed to create fish tank:', error);
+                    document.getElementById('loading').innerHTML = `
+                        <div class="loading-content">
+                            <div style="color: #ff4757; text-align: center;">
+                                <h3>❌ Initialization Failed</h3>
+                                <p>${error.message}</p>
+                                <a href="/fallback.html" style="
+                                    background: #2ed573; 
+                                    color: white; 
+                                    text-decoration: none;
+                                    padding: 15px 25px; 
+                                    border-radius: 5px; 
+                                    display: inline-block;
+                                    margin-top: 15px;
+                                ">🐠 Try Basic Mode</a>
+                            </div>
+                        </div>
+                    `;
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

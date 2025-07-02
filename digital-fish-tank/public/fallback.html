@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fish Tank - Basic Mode</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="/libs/three.min.js"></script>
+</head>
+<body>
+    <div id="loading">
+        <div class="loading-content">
+            <div class="fish-loading">🐠</div>
+            <h2>Loading Basic Aquarium...</h2>
+            <p id="loading-progress">Starting basic mode...</p>
+            <div class="loading-spinner"></div>
+            <div class="loading-details">
+                <small>Running in compatibility mode (no physics)</small>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-container" style="display: none;">
+        <!-- 3D Canvas -->
+        <div id="canvas-container"></div>
+        
+        <!-- UI Overlay -->
+        <div id="ui-overlay">
+            <!-- Top Status Bar -->
+            <div id="status-bar">
+                <div class="status-section">
+                    <h3 id="tank-name">My Aquarium (Basic Mode)</h3>
+                    <div class="stats">
+                        <span class="stat">💰 <span id="aqua-coins">500</span></span>
+                        <span class="stat">⭐ Level <span id="player-level">1</span></span>
+                        <span class="stat">🧪 XP: <span id="player-xp">0</span></span>
+                    </div>
+                </div>
+                <div class="status-section">
+                    <div class="tank-stats">
+                        <span class="stat">🌡️ <span id="temperature">24°C</span></span>
+                        <span class="stat">✨ Clean: <span id="cleanliness">90%</span></span>
+                        <span class="stat">🐠 Fish: <span id="fish-count">1</span></span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Left Panel - Actions -->
+            <div id="left-panel" class="panel">
+                <div class="panel-header">
+                    <h3>🎮 Actions</h3>
+                </div>
+                <div class="action-buttons">
+                    <button id="feed-btn" class="action-btn">🍽️ Feed</button>
+                    <button id="clean-btn" class="action-btn">🧽 Clean</button>
+                    <button id="add-fish-btn" class="action-btn">🐠 Add Fish</button>
+                </div>
+                <div style="margin-top: 15px; padding: 10px; background: rgba(255,255,0,0.1); border-radius: 5px;">
+                    <small>⚠️ Running in basic mode. No physics or multiplayer.</small>
+                </div>
+            </div>
+            
+            <!-- Bottom Panel - Messages -->
+            <div id="bottom-panel" class="panel">
+                <div id="message-log">
+                    <div class="message">🐠 Welcome to your basic digital aquarium!</div>
+                    <div class="message">🔧 This is a compatibility mode without physics.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        console.log('🚀 Starting fallback fish tank...');
+        
+        // Basic fish tank without physics
+        class BasicFishTank {
+            constructor() {
+                this.scene = null;
+                this.camera = null;
+                this.renderer = null;
+                this.fish = [];
+                this.animationId = null;
+                
+                this.init();
+            }
+            
+            init() {
+                console.log('🎨 Creating basic fish tank...');
+                
+                // Check Three.js
+                if (typeof THREE === 'undefined') {
+                    this.showError('Three.js library failed to load');
+                    return;
+                }
+                
+                this.setupScene();
+                this.createTank();
+                this.createFish();
+                this.setupUI();
+                this.animate();
+                
+                // Hide loading
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('game-container').style.display = 'block';
+                
+                this.addMessage('✅ Basic fish tank loaded successfully!');
+                console.log('✅ Basic fish tank running!');
+            }
+            
+            setupScene() {
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0x001122);
+                
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                this.camera.position.set(0, 5, 15);
+                
+                this.renderer = new THREE.WebGLRenderer({ antialias: true });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                
+                const container = document.getElementById('canvas-container');
+                container.appendChild(this.renderer.domElement);
+                
+                // Lights
+                const ambientLight = new THREE.AmbientLight(0x4488aa, 0.6);
+                this.scene.add(ambientLight);
+                
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+                directionalLight.position.set(0, 10, 5);
+                this.scene.add(directionalLight);
+            }
+            
+            createTank() {
+                // Tank walls
+                const wallMaterial = new THREE.MeshBasicMaterial({ 
+                    color: 0x88ccff, 
+                    transparent: true, 
+                    opacity: 0.1,
+                    side: THREE.DoubleSide
+                });
+                
+                // Front wall
+                const frontWall = new THREE.Mesh(new THREE.PlaneGeometry(20, 12), wallMaterial);
+                frontWall.position.z = 6;
+                this.scene.add(frontWall);
+                
+                // Back wall
+                const backWall = new THREE.Mesh(new THREE.PlaneGeometry(20, 12), wallMaterial);
+                backWall.position.z = -6;
+                this.scene.add(backWall);
+                
+                // Side walls
+                const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), wallMaterial);
+                leftWall.position.x = -10;
+                leftWall.rotation.y = Math.PI / 2;
+                this.scene.add(leftWall);
+                
+                const rightWall = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), wallMaterial);
+                rightWall.position.x = 10;
+                rightWall.rotation.y = -Math.PI / 2;
+                this.scene.add(rightWall);
+                
+                // Bottom
+                const bottom = new THREE.Mesh(new THREE.PlaneGeometry(20, 12), wallMaterial);
+                bottom.position.y = -6;
+                bottom.rotation.x = -Math.PI / 2;
+                this.scene.add(bottom);
+                
+                // Decorations
+                this.createDecorations();
+            }
+            
+            createDecorations() {
+                // Plant
+                const plantGeometry = new THREE.ConeGeometry(0.5, 3, 8);
+                const plantMaterial = new THREE.MeshStandardMaterial({ color: 0x2d5016 });
+                const plant = new THREE.Mesh(plantGeometry, plantMaterial);
+                plant.position.set(-6, -4, -4);
+                this.scene.add(plant);
+                
+                // Rock
+                const rockGeometry = new THREE.DodecahedronGeometry(1);
+                const rockMaterial = new THREE.MeshStandardMaterial({ color: 0x666666 });
+                const rock = new THREE.Mesh(rockGeometry, rockMaterial);
+                rock.position.set(6, -4, 3);
+                this.scene.add(rock);
+            }
+            
+            createFish() {
+                // Create a basic fish
+                const fish = this.createSingleFish();
+                fish.position.set(0, 0, 0);
+                fish.userData = {
+                    direction: new THREE.Vector3(1, 0, 0),
+                    speed: 0.02,
+                    turnSpeed: 0.01,
+                    bounds: { x: 8, y: 4, z: 4 },
+                    hunger: 50,
+                    happiness: 80,
+                    health: 100
+                };
+                this.fish.push(fish);
+                this.scene.add(fish);
+            }
+            
+            createSingleFish() {
+                const fishGroup = new THREE.Group();
+                
+                // Body
+                const bodyGeometry = new THREE.ConeGeometry(0.3, 1.5, 6);
+                const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xff6b6b });
+                const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                body.rotation.z = Math.PI / 2;
+                fishGroup.add(body);
+                
+                // Tail
+                const tailGeometry = new THREE.ConeGeometry(0.2, 0.8, 3);
+                const tailMaterial = new THREE.MeshStandardMaterial({ color: 0xff6b6b, transparent: true, opacity: 0.7 });
+                const tail = new THREE.Mesh(tailGeometry, tailMaterial);
+                tail.position.x = -0.7;
+                tail.rotation.z = Math.PI / 2;
+                tail.scale.set(0.5, 0.5, 0.5);
+                fishGroup.add(tail);
+                
+                return fishGroup;
+            }
+            
+            setupUI() {
+                document.getElementById('feed-btn').onclick = () => this.feedFish();
+                document.getElementById('clean-btn').onclick = () => this.cleanTank();
+                document.getElementById('add-fish-btn').onclick = () => this.addFish();
+                
+                window.addEventListener('resize', () => this.onWindowResize());
+            }
+            
+            feedFish() {
+                if (this.fish.length > 0) {
+                    const fish = this.fish[0];
+                    fish.userData.hunger = Math.min(100, fish.userData.hunger + 30);
+                    fish.userData.happiness = Math.min(100, fish.userData.happiness + 10);
+                    
+                    this.addMessage('🍽️ Fed your fish!');
+                    this.createFoodParticles(fish.position);
+                }
+            }
+            
+            cleanTank() {
+                this.addMessage('🧽 Tank cleaned!');
+                this.fish.forEach(fish => {
+                    fish.userData.happiness = Math.min(100, fish.userData.happiness + 15);
+                    fish.userData.health = Math.min(100, fish.userData.health + 10);
+                });
+            }
+            
+            addFish() {
+                if (this.fish.length < 5) {
+                    const newFish = this.createSingleFish();
+                    newFish.position.set(
+                        (Math.random() - 0.5) * 8,
+                        (Math.random() - 0.5) * 4,
+                        (Math.random() - 0.5) * 4
+                    );
+                    newFish.userData = {
+                        direction: new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5).normalize(),
+                        speed: 0.01 + Math.random() * 0.02,
+                        turnSpeed: 0.005 + Math.random() * 0.01,
+                        bounds: { x: 8, y: 4, z: 4 },
+                        hunger: 70,
+                        happiness: 80,
+                        health: 100
+                    };
+                    
+                    // Random color
+                    const colors = [0xff6b6b, 0x4ecdc4, 0x45b7d1, 0xf9ca24, 0x6c5ce7];
+                    const color = colors[Math.floor(Math.random() * colors.length)];
+                    newFish.children[0].material.color.setHex(color);
+                    newFish.children[1].material.color.setHex(color);
+                    
+                    this.fish.push(newFish);
+                    this.scene.add(newFish);
+                    
+                    document.getElementById('fish-count').textContent = this.fish.length;
+                    this.addMessage(`🐠 Added new fish! Total: ${this.fish.length}`);
+                } else {
+                    this.addMessage('❗ Tank is full! (Max 5 fish)');
+                }
+            }
+            
+            createFoodParticles(position) {
+                for (let i = 0; i < 10; i++) {
+                    const particle = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.05),
+                        new THREE.MeshBasicMaterial({ color: 0xffaa00 })
+                    );
+                    
+                    particle.position.copy(position);
+                    particle.position.y += 2;
+                    particle.position.x += (Math.random() - 0.5) * 1;
+                    particle.position.z += (Math.random() - 0.5) * 1;
+                    
+                    this.scene.add(particle);
+                    
+                    // Animate falling
+                    const fallSpeed = 0.1;
+                    const animate = () => {
+                        particle.position.y -= fallSpeed;
+                        particle.rotation.x += 0.1;
+                        particle.rotation.y += 0.1;
+                        
+                        if (particle.position.y > position.y - 1) {
+                            requestAnimationFrame(animate);
+                        } else {
+                            this.scene.remove(particle);
+                        }
+                    };
+                    setTimeout(() => animate(), i * 100);
+                }
+            }
+            
+            updateFish() {
+                this.fish.forEach(fish => {
+                    const userData = fish.userData;
+                    
+                    // Move fish
+                    const movement = userData.direction.clone().multiplyScalar(userData.speed);
+                    fish.position.add(movement);
+                    
+                    // Bounce off walls
+                    if (Math.abs(fish.position.x) > userData.bounds.x) {
+                        userData.direction.x *= -1;
+                        fish.position.x = Math.sign(fish.position.x) * userData.bounds.x;
+                    }
+                    if (Math.abs(fish.position.y) > userData.bounds.y) {
+                        userData.direction.y *= -1;
+                        fish.position.y = Math.sign(fish.position.y) * userData.bounds.y;
+                    }
+                    if (Math.abs(fish.position.z) > userData.bounds.z) {
+                        userData.direction.z *= -1;
+                        fish.position.z = Math.sign(fish.position.z) * userData.bounds.z;
+                    }
+                    
+                    // Random direction changes
+                    if (Math.random() < 0.01) {
+                        userData.direction.add(new THREE.Vector3(
+                            (Math.random() - 0.5) * userData.turnSpeed,
+                            (Math.random() - 0.5) * userData.turnSpeed * 0.5,
+                            (Math.random() - 0.5) * userData.turnSpeed
+                        ));
+                        userData.direction.normalize();
+                    }
+                    
+                    // Face movement direction
+                    fish.lookAt(fish.position.clone().add(userData.direction));
+                    
+                    // Slow hunger decrease
+                    userData.hunger = Math.max(0, userData.hunger - 0.001);
+                    if (userData.hunger < 20) {
+                        userData.happiness = Math.max(0, userData.happiness - 0.001);
+                    }
+                });
+            }
+            
+            animate() {
+                this.animationId = requestAnimationFrame(() => this.animate());
+                
+                this.updateFish();
+                this.renderer.render(this.scene, this.camera);
+            }
+            
+            onWindowResize() {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+            
+            addMessage(message) {
+                const messageLog = document.getElementById('message-log');
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message';
+                messageDiv.textContent = message;
+                
+                messageLog.appendChild(messageDiv);
+                messageLog.scrollTop = messageLog.scrollHeight;
+                
+                // Keep last 5 messages
+                while (messageLog.children.length > 5) {
+                    messageLog.removeChild(messageLog.firstChild);
+                }
+            }
+            
+            showError(message) {
+                const loading = document.getElementById('loading');
+                loading.innerHTML = `
+                    <div class="loading-content">
+                        <div style="color: #ff4757; text-align: center;">
+                            <h3>❌ Error</h3>
+                            <p>${message}</p>
+                            <button onclick="location.reload()" style="
+                                background: #ff6b35; 
+                                color: white; 
+                                border: none; 
+                                padding: 10px 20px; 
+                                border-radius: 5px; 
+                                cursor: pointer; 
+                                margin-top: 15px;
+                            ">🔄 Reload</button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        // Start when page loads
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                new BasicFishTank();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

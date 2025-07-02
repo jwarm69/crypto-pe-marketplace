@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Fish Tank</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Try multiple CDN sources -->
+    <script>
+        // CDN Loading with multiple fallbacks
+        function loadScript(src, name, callback, fallbacks = []) {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = () => {
+                console.log(`✅ ${name} loaded from: ${src}`);
+                callback && callback();
+            };
+            script.onerror = () => {
+                console.warn(`❌ Failed to load ${name} from: ${src}`);
+                if (fallbacks.length > 0) {
+                    const nextSrc = fallbacks.shift();
+                    console.log(`🔄 Trying fallback for ${name}: ${nextSrc}`);
+                    loadScript(nextSrc, name, callback, fallbacks);
+                } else {
+                    console.error(`💥 All CDN sources failed for ${name}`);
+                    if (name === 'Cannon-ES') {
+                        // If physics engine fails, offer fallback mode
+                        showFallbackOption();
+                    }
+                }
+            };
+            document.head.appendChild(script);
+        }
+        
+        // Load Three.js with multiple fallbacks
+        loadScript(
+            'https://unpkg.com/three@0.149.0/build/three.min.js',
+            'Three.js',
+            null,
+            [
+                'https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js',
+                'https://cdnjs.cloudflare.com/ajax/libs/three.js/r149/three.min.js',
+                '/libs/three.min.js'  // Local fallback
+            ]
+        );
+        
+        // Load Cannon-ES with multiple fallbacks
+        loadScript(
+            'https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js',
+            'Cannon-ES',
+            null,
+            [
+                'https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js',
+                'https://cdnjs.cloudflare.com/ajax/libs/cannon-es/0.20.0/cannon-es.min.js',
+                '/libs/cannon-es.js'  // Local fallback
+            ]
+        );
+        
+        // Load Socket.IO with fallbacks
+        loadScript(
+            'https://unpkg.com/socket.io-client@4.7.5/dist/socket.io.min.js',
+            'Socket.IO',
+            null,
+            [
+                'https://cdn.jsdelivr.net/npm/socket.io-client@4.7.5/dist/socket.io.min.js',
+                'https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js',
+                '/libs/socket.io.min.js'  // Local fallback
+            ]
+        );
+    </script>
+    
+    <!-- Dependency checker and loader -->
+    <script>
+        let dependenciesLoaded = {
+            three: false,
+            cannon: false,
+            socketio: false
+        };
+        
+        function checkDependency(name, globalVar) {
+            if (typeof window[globalVar] !== 'undefined') {
+                dependenciesLoaded[name] = true;
+                updateLoadingProgress();
+                return true;
+            }
+            return false;
+        }
+        
+        function updateLoadingProgress() {
+            const loaded = Object.values(dependenciesLoaded).filter(Boolean).length;
+            const total = Object.keys(dependenciesLoaded).length;
+            const progress = Math.round((loaded / total) * 100);
+            
+            console.log(`📊 Loading progress: ${loaded}/${total} (${progress}%)`);
+            console.log('🔍 Dependencies status:', dependenciesLoaded);
+            
+            const progressText = document.getElementById('loading-progress');
+            if (progressText) {
+                progressText.textContent = `Loading dependencies... ${progress}%`;
+            }
+            
+            // Don't auto-initialize here, let the interval handle it
+        }
+        
+        
+        function showError(message) {
+            const loading = document.getElementById('loading');
+            loading.innerHTML = `
+                <div class="loading-content">
+                    <div style="color: #ff4757; text-align: center;">
+                        <h3>❌ Loading Error</h3>
+                        <p>${message}</p>
+                        <button onclick="location.reload()" style="
+                            background: #ff6b35; 
+                            color: white; 
+                            border: none; 
+                            padding: 10px 20px; 
+                            border-radius: 5px; 
+                            cursor: pointer; 
+                            margin-top: 15px;
+                        ">🔄 Reload Page</button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function showFallbackOption() {
+            const loading = document.getElementById('loading');
+            loading.innerHTML = `
+                <div class="loading-content">
+                    <div style="color: #ffa502; text-align: center;">
+                        <h3>⚠️ Physics Engine Unavailable</h3>
+                        <p>The physics engine failed to load, but you can still enjoy a basic fish tank!</p>
+                        <div style="margin: 20px 0;">
+                            <button onclick="window.location.href='/fallback.html'" style="
+                                background: #2ed573; 
+                                color: white; 
+                                border: none; 
+                                padding: 15px 25px; 
+                                border-radius: 5px; 
+                                cursor: pointer; 
+                                margin: 5px;
+                                font-size: 1rem;
+                            ">🐠 Try Basic Mode</button>
+                            <br>
+                            <button onclick="location.reload()" style="
+                                background: #ff6b35; 
+                                color: white; 
+                                border: none; 
+                                padding: 10px 20px; 
+                                border-radius: 5px; 
+                                cursor: pointer; 
+                                margin: 5px;
+                            ">🔄 Reload Page</button>
+                        </div>
+                        <div style="font-size: 0.9rem; opacity: 0.8;">
+                            <p>Basic mode includes:</p>
+                            <ul style="text-align: left; display: inline-block;">
+                                <li>✅ 3D fish swimming</li>
+                                <li>✅ Feeding and care</li>
+                                <li>✅ Multiple fish</li>
+                                <li>❌ No physics collisions</li>
+                                <li>❌ No multiplayer</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function initializeGame() {
+            console.log('🎮 All dependencies loaded, initializing game...');
+            
+            // Update loading status
+            const progressText = document.getElementById('loading-progress');
+            if (progressText) {
+                progressText.textContent = 'Starting 3D engine...';
+            }
+            
+            // Initialize fish tank (defined in fish-tank.js)
+            if (typeof window.initializeFishTank === 'function') {
+                window.initializeFishTank();
+            } else {
+                console.error('Fish tank initialization function not found');
+                showError('Game initialization failed. Please reload the page.');
+            }
+        }
+        
+        // Check dependencies multiple times to ensure they load
+        function startDependencyCheck() {
+            console.log('🔍 Starting dependency check...');
+            
+            // Check immediately
+            checkDependency('three', 'THREE');
+            checkDependency('cannon', 'CANNON');
+            checkDependency('socketio', 'io');
+            
+            // Keep checking until all are loaded or timeout
+            let attempts = 0;
+            const maxAttempts = 20; // 10 seconds total
+            
+            const checkInterval = setInterval(() => {
+                attempts++;
+                
+                if (!dependenciesLoaded.three) checkDependency('three', 'THREE');
+                if (!dependenciesLoaded.cannon) checkDependency('cannon', 'CANNON');
+                if (!dependenciesLoaded.socketio) checkDependency('socketio', 'io');
+                
+                // Check if all loaded
+                const allLoaded = Object.values(dependenciesLoaded).every(Boolean);
+                
+                if (allLoaded) {
+                    clearInterval(checkInterval);
+                    console.log('✅ All dependencies loaded!');
+                    setTimeout(initializeGame, 500);
+                } else if (attempts >= maxAttempts) {
+                    clearInterval(checkInterval);
+                    console.error('❌ Dependency loading timeout');
+                    
+                    // Show which dependencies failed
+                    const failed = Object.entries(dependenciesLoaded)
+                        .filter(([key, loaded]) => !loaded)
+                        .map(([key]) => key);
+                    
+                    showError(`Failed to load: ${failed.join(', ')}. Please refresh the page.`);
+                }
+            }, 500);
+        }
+        
+        // Start checking when page loads
+        window.addEventListener('load', () => {
+            setTimeout(startDependencyCheck, 500);
+        });
+    </script>
+</head>
+<body>
+    <div id="loading">
+        <div class="loading-content">
+            <div class="fish-loading">🐠</div>
+            <h2>Loading Your Aquarium...</h2>
+            <p id="loading-progress">Initializing...</p>
+            <div class="loading-spinner"></div>
+            <div class="loading-details">
+                <small>Checking WebGL support and loading 3D engine...</small>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-container" style="display: none;">
+        <!-- 3D Canvas -->
+        <div id="canvas-container"></div>
+        
+        <!-- UI Overlay -->
+        <div id="ui-overlay">
+            <!-- Top Status Bar -->
+            <div id="status-bar">
+                <div class="status-section">
+                    <h3 id="tank-name">My Aquarium</h3>
+                    <div class="stats">
+                        <span class="stat">💰 <span id="aqua-coins">500</span></span>
+                        <span class="stat">⭐ Level <span id="player-level">1</span></span>
+                        <span class="stat">🧪 XP: <span id="player-xp">0</span></span>
+                    </div>
+                </div>
+                <div class="status-section">
+                    <div class="tank-stats">
+                        <span class="stat">🌡️ <span id="temperature">24°C</span></span>
+                        <span class="stat">✨ Clean: <span id="cleanliness">90%</span></span>
+                        <span class="stat">🐠 Fish: <span id="fish-count">1</span></span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Left Panel - Actions -->
+            <div id="left-panel" class="panel">
+                <div class="panel-header">
+                    <h3>🎮 Actions</h3>
+                </div>
+                <div class="action-buttons">
+                    <button id="feed-btn" class="action-btn" title="Feed Fish">🍽️ Feed</button>
+                    <button id="clean-btn" class="action-btn" title="Clean Tank">🧽 Clean</button>
+                    <button id="shop-btn" class="action-btn" title="Open Shop">🛒 Shop</button>
+                    <button id="friends-btn" class="action-btn" title="Visit Friends">👥 Friends</button>
+                </div>
+                
+                <div class="friend-code-section">
+                    <h4>Your Friend Code:</h4>
+                    <div id="friend-code-display">ABC123</div>
+                    <button id="copy-code-btn" class="small-btn">📋 Copy</button>
+                </div>
+                
+                <div class="visit-section">
+                    <h4>Visit Friend:</h4>
+                    <input type="text" id="friend-code-input" placeholder="Enter code..." maxlength="6">
+                    <button id="visit-btn" class="small-btn">🚪 Visit</button>
+                </div>
+            </div>
+            
+            <!-- Right Panel - Fish Info -->
+            <div id="right-panel" class="panel">
+                <div class="panel-header">
+                    <h3>🐠 Fish Status</h3>
+                </div>
+                <div id="fish-list">
+                    <!-- Fish will be populated by JavaScript -->
+                </div>
+                <div id="selected-fish-info" style="display: none;">
+                    <h4 id="selected-fish-name">Fish Name</h4>
+                    <div class="fish-stats">
+                        <div class="stat-bar">
+                            <label>❤️ Health</label>
+                            <div class="progress-bar">
+                                <div id="health-bar" class="progress-fill health"></div>
+                            </div>
+                            <span id="health-value">100%</span>
+                        </div>
+                        <div class="stat-bar">
+                            <label>😊 Happiness</label>
+                            <div class="progress-bar">
+                                <div id="happiness-bar" class="progress-fill happiness"></div>
+                            </div>
+                            <span id="happiness-value">80%</span>
+                        </div>
+                        <div class="stat-bar">
+                            <label>🍽️ Hunger</label>
+                            <div class="progress-bar">
+                                <div id="hunger-bar" class="progress-fill hunger"></div>
+                            </div>
+                            <span id="hunger-value">50%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Bottom Panel - Messages -->
+            <div id="bottom-panel" class="panel">
+                <div id="message-log">
+                    <div class="message">🐠 Welcome to your digital aquarium!</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Shop Modal -->
+        <div id="shop-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>🛒 Aquarium Shop</h2>
+                    <button class="close-btn" onclick="closeShop()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="shop-tabs">
+                        <button class="tab-btn active" onclick="showShopTab('fish')">🐠 Fish</button>
+                        <button class="tab-btn" onclick="showShopTab('decorations')">🌿 Decorations</button>
+                    </div>
+                    <div id="shop-items" class="shop-items">
+                        <!-- Shop items will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Friend List Modal -->
+        <div id="friends-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>👥 Friends & Visiting</h2>
+                    <button class="close-btn" onclick="closeFriends()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="friends-section">
+                        <h3>Recent Visitors</h3>
+                        <div id="recent-visitors">
+                            <p>No recent visitors</p>
+                        </div>
+                    </div>
+                    <div class="friends-section">
+                        <h3>Tank Gallery</h3>
+                        <div id="public-tanks">
+                            <p>Browse public tanks (Coming Soon)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Scripts -->
+    <script src="js/fish-tank.js"></script>
+    <script src="js/fish-ai.js"></script>
+    <script src="js/ui-controller.js"></script>
+    <script src="js/multiplayer.js"></script>
+</body>
+</html>

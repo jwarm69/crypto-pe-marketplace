@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Fish Tank</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://unpkg.com/three@0.149.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js"></script>
+    <script src="https://unpkg.com/socket.io-client@4.7.5/dist/socket.io.min.js"></script>
+</head>
+<body>
+    <div id="loading">
+        <div class="loading-content">
+            <div class="fish-loading">🐠</div>
+            <h2>Loading Your Aquarium...</h2>
+            <p id="loading-progress">Initializing...</p>
+            <div class="loading-spinner"></div>
+        </div>
+    </div>
+
+    <div id="game-container" style="display: none;">
+        <!-- 3D Canvas -->
+        <div id="canvas-container"></div>
+        
+        <!-- UI Overlay -->
+        <div id="ui-overlay">
+            <!-- Top Status Bar -->
+            <div id="status-bar">
+                <div class="status-section">
+                    <h3 id="tank-name">My Aquarium</h3>
+                    <div class="stats">
+                        <span class="stat">💰 <span id="aqua-coins">500</span></span>
+                        <span class="stat">⭐ Level <span id="player-level">1</span></span>
+                        <span class="stat">🧪 XP: <span id="player-xp">0</span></span>
+                    </div>
+                </div>
+                <div class="status-section">
+                    <div class="tank-stats">
+                        <span class="stat">🌡️ <span id="temperature">24°C</span></span>
+                        <span class="stat">✨ Clean: <span id="cleanliness">90%</span></span>
+                        <span class="stat">🐠 Fish: <span id="fish-count">1</span></span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Left Panel - Actions -->
+            <div id="left-panel" class="panel">
+                <div class="panel-header">
+                    <h3>🎮 Actions</h3>
+                </div>
+                <div class="action-buttons">
+                    <button id="feed-btn" class="action-btn" title="Feed Fish">🍽️ Feed</button>
+                    <button id="clean-btn" class="action-btn" title="Clean Tank">🧽 Clean</button>
+                    <button id="shop-btn" class="action-btn" title="Open Shop">🛒 Shop</button>
+                    <button id="friends-btn" class="action-btn" title="Visit Friends">👥 Friends</button>
+                </div>
+            </div>
+            
+            <!-- Bottom Panel - Messages -->
+            <div id="bottom-panel" class="panel">
+                <div id="message-log">
+                    <div class="message">🐠 Welcome to your digital aquarium!</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Simple initialization script -->
+    <script>
+        console.log('🚀 Simple fish tank starting...');
+        
+        function updateLoadingText(text) {
+            const progressEl = document.getElementById('loading-progress');
+            if (progressEl) progressEl.textContent = text;
+        }
+        
+        function simpleInit() {
+            updateLoadingText('Checking libraries...');
+            
+            // Check dependencies
+            if (typeof THREE === 'undefined') {
+                updateLoadingText('❌ Three.js failed to load');
+                return;
+            }
+            
+            if (typeof CANNON === 'undefined') {
+                updateLoadingText('❌ Cannon.js failed to load');
+                return;
+            }
+            
+            updateLoadingText('✅ Libraries loaded, starting game...');
+            
+            // Simple WebGL check
+            try {
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl');
+                if (!gl) throw new Error('WebGL not supported');
+            } catch (e) {
+                updateLoadingText('❌ WebGL not supported');
+                return;
+            }
+            
+            setTimeout(() => {
+                // Hide loading and show game
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('game-container').style.display = 'block';
+                
+                // Create simple scene
+                createSimpleScene();
+            }, 1000);
+        }
+        
+        function createSimpleScene() {
+            console.log('🎨 Creating simple 3D scene...');
+            
+            // Create scene
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x001122);
+            
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            
+            const container = document.getElementById('canvas-container');
+            container.appendChild(renderer.domElement);
+            
+            // Add lights
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(0, 10, 5);
+            scene.add(directionalLight);
+            
+            // Create simple fish
+            const fishGeometry = new THREE.ConeGeometry(0.3, 1.5, 6);
+            const fishMaterial = new THREE.MeshStandardMaterial({ color: 0xff6b6b });
+            const fish = new THREE.Mesh(fishGeometry, fishMaterial);
+            fish.position.set(0, 0, 0);
+            scene.add(fish);
+            
+            // Create tank walls (simple version)
+            const wallMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0x88ccff, 
+                transparent: true, 
+                opacity: 0.1,
+                side: THREE.DoubleSide
+            });
+            
+            // Front wall
+            const frontWall = new THREE.Mesh(new THREE.PlaneGeometry(20, 12), wallMaterial);
+            frontWall.position.z = 6;
+            scene.add(frontWall);
+            
+            // Camera position
+            camera.position.set(0, 5, 15);
+            camera.lookAt(0, 0, 0);
+            
+            // Simple animation
+            function animate() {
+                requestAnimationFrame(animate);
+                
+                // Rotate fish
+                fish.rotation.y += 0.01;
+                fish.position.x = Math.sin(Date.now() * 0.001) * 3;
+                
+                renderer.render(scene, camera);
+            }
+            
+            animate();
+            console.log('✅ Simple fish tank running!');
+            
+            // Add message
+            const messageLog = document.getElementById('message-log');
+            const newMessage = document.createElement('div');
+            newMessage.className = 'message';
+            newMessage.textContent = '✅ Simple fish tank loaded successfully!';
+            messageLog.appendChild(newMessage);
+        }
+        
+        // Start when page loads
+        window.addEventListener('load', () => {
+            setTimeout(simpleInit, 1000);
+        });
+    </script>
+</body>
+</html>
