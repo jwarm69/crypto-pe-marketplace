@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Multicolor Animation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <div>🎨 <strong>Interactive Controls:</strong></div>
+        <div>• Move mouse to attract particles</div>
+        <div>• Click to create explosion</div>
+        <div>• Press SPACE for mode switch</div>
+        <div>• Press F for fish/ocean mode</div>
+        <div>• Press C for color themes</div>
+        <div>• Press R to reset</div>
+        <div>• Press + / - to change particle count</div>
+    </div>
+
+    <script>
+        let particles = [];
+        let attractors = [];
+        let mode = 0;
+        let colorTheme = 0; // 0: Normal, 1: UF, 2: FSU
+        let maxParticles = 200;
+        let time = 0;
+        let colorPalettes = [];
+        let explosions = [];
+        let bubbles = [];
+        let isFishMode = false;
+        
+        function setup() {
+            createCanvas(windowWidth, windowHeight);
+            colorMode(HSB, 360, 100, 100, 100);
+            
+            // Define color palettes
+            colorPalettes = [
+                // Normal colors (rainbow spectrum)
+                [
+                    color(300, 80, 90), // Purple
+                    color(200, 90, 95), // Cyan
+                    color(60, 85, 95),  // Yellow
+                    color(120, 75, 90), // Green
+                    color(20, 90, 95),  // Orange
+                    color(270, 70, 85)  // Magenta
+                ],
+                // UF colors (Blue and Orange)
+                [
+                    color(220, 100, 95), // UF Blue
+                    color(25, 100, 95),  // UF Orange
+                    color(215, 80, 90),  // Light Blue
+                    color(30, 90, 90),   // Light Orange
+                    color(210, 60, 85),  // Pale Blue
+                    color(35, 80, 85)    // Pale Orange
+                ],
+                // FSU colors (Garnet and Gold) / FSU Ocean
+                [
+                    color(340, 80, 60),  // FSU Garnet/Maroon
+                    color(45, 100, 90),  // FSU Gold
+                    color(335, 70, 70),  // Light Garnet
+                    color(50, 80, 85),   // Light Gold
+                    color(330, 60, 80),  // Pale Garnet
+                    color(55, 60, 80)    // Pale Gold
+                ]
+            ];
+            
+            // Initialize particles
+            for (let i = 0; i < maxParticles; i++) {
+                if (isFishMode) {
+                    particles.push(new Fish(random(width), random(height)));
+                } else {
+                    particles.push(new Particle(random(width), random(height)));
+                }
+            }
+            
+            // Initialize bubbles for ocean mode
+            for (let i = 0; i < 20; i++) {
+                bubbles.push(new Bubble(random(width), random(height, height + 100)));
+            }
+            
+            // Add some attractors
+            attractors.push(new Attractor(width * 0.3, height * 0.3));
+            attractors.push(new Attractor(width * 0.7, height * 0.7));
+        }
+        
+        function draw() {
+            time += 0.01;
+            
+            if (isFishMode) {
+                drawOceanBackground();
+            } else {
+                // Dynamic background
+                background(0, 0, 0, 15);
+            }
+            
+            // Draw connection lines between nearby particles (not in fish mode)
+            if (mode === 1 && !isFishMode) {
+                drawConnections();
+            }
+            
+            // Update and draw bubbles in fish mode
+            if (isFishMode) {
+                for (let i = bubbles.length - 1; i >= 0; i--) {
+                    bubbles[i].update();
+                    bubbles[i].display();
+                    if (bubbles[i].isAtSurface()) {
+                        bubbles.splice(i, 1);
+                        bubbles.push(new Bubble(random(width), height + random(50)));
+                    }
+                }
+            }
+            
+            // Update and draw attractors (coral in fish mode)
+            for (let attractor of attractors) {
+                attractor.update();
+                attractor.display();
+            }
+            
+            // Update and draw particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let particle = particles[i];
+                
+                // Apply forces based on mode
+                if (isFishMode) {
+                    applyFishForces(particle);
+                } else {
+                    switch (mode) {
+                        case 0: // Orbit mode
+                            applyOrbitForces(particle);
+                            break;
+                        case 1: // Flow field mode
+                            applyFlowField(particle);
+                            break;
+                        case 2: // Magnetic mode
+                            applyMagneticForces(particle);
+                            break;
+                    }
+                }
+                
+                particle.update();
+                particle.display();
+                
+                // Remove dead particles
+                if (particle.isDead()) {
+                    particles.splice(i, 1);
+                }
+            }
+            
+            // Add new particles if needed
+            while (particles.length < maxParticles) {
+                if (isFishMode) {
+                    particles.push(new Fish(random(width), random(height)));
+                } else {
+                    particles.push(new Particle(random(width), random(height)));
+                }
+            }
+            
+            // Update and draw explosions
+            for (let i = explosions.length - 1; i >= 0; i--) {
+                explosions[i].update();
+                explosions[i].display();
+                if (explosions[i].isDead()) {
+                    explosions.splice(i, 1);
+                }
+            }
+            
+            // Draw mode and color theme indicators
+            fill(360, 0, 100);
+            textAlign(RIGHT, BOTTOM);
+            textSize(16);
+            if (isFishMode) {
+                let themeText = ["OCEAN", "UF OCEAN", "FSU OCEAN"][colorTheme];
+                text(`Mode: FISH | ${themeText}`, width - 20, height - 20);
+            } else {
+                let modeText = ["ORBIT", "FLOW", "MAGNETIC"][mode];
+                let themeText = ["NORMAL", "UF", "FSU"][colorTheme];
+                text(`Mode: ${modeText} | Colors: ${themeText}`, width - 20, height - 20);
+            }
+        }
+        
+        function getCurrentColorPalette() {
+            return colorPalettes[colorTheme];
+        }
+        
+        function drawOceanBackground() {
+            // Ocean gradient background
+            for (let i = 0; i <= height; i++) {
+                let inter = map(i, 0, height, 0, 1);
+                let c = lerpColor(color(200, 60, 80), color(220, 80, 20), inter);
+                stroke(c);
+                line(0, i, width, i);
+            }
+            
+            // Add light rays from surface
+            drawLightRays();
+        }
+        
+        function drawLightRays() {
+            let rayCount = 5;
+            for (let i = 0; i < rayCount; i++) {
+                let x = (width / rayCount) * i + sin(time + i) * 50;
+                let alpha = sin(time * 2 + i) * 20 + 30;
+                stroke(200, 30, 90, alpha);
+                strokeWeight(20);
+                line(x, 0, x + 100, height);
+            }
+        }
+        
+        class Fish {
+            constructor(x, y) {
+                this.pos = createVector(x, y);
+                this.vel = createVector(random(-2, 2), random(-1, 1));
+                this.acc = createVector(0, 0);
+                this.maxSpeed = random(1, 3);
+                this.maxForce = 0.1;
+                this.size = random(15, 35);
+                this.angle = 0;
+                this.tailOffset = 0;
+                this.colorIndex = floor(random(getCurrentColorPalette().length));
+                this.fishType = floor(random(3)); // Different fish shapes
+                this.life = 255;
+                this.swimSpeed = random(0.1, 0.3);
+            }
+            
+            update() {
+                this.vel.add(this.acc);
+                this.vel.limit(this.maxSpeed);
+                this.pos.add(this.vel);
+                this.acc.mult(0);
+                
+                // Calculate swimming angle
+                this.angle = this.vel.heading();
+                this.tailOffset += this.swimSpeed;
+                
+                // Wrap around edges
+                if (this.pos.x < -this.size) this.pos.x = width + this.size;
+                if (this.pos.x > width + this.size) this.pos.x = -this.size;
+                if (this.pos.y < -this.size) this.pos.y = height + this.size;
+                if (this.pos.y > height + this.size) this.pos.y = -this.size;
+            }
+            
+            applyForce(force) {
+                this.acc.add(force);
+            }
+            
+            display() {
+                push();
+                translate(this.pos.x, this.pos.y);
+                rotate(this.angle);
+                
+                let palette = getCurrentColorPalette();
+                let fishColor = palette[this.colorIndex];
+                let h = hue(fishColor);
+                let s = saturation(fishColor);
+                let b = brightness(fishColor);
+                
+                // Fish body
+                fill(h, s, b);
+                stroke(h, s, b - 20);
+                strokeWeight(1);
+                
+                if (this.fishType === 0) {
+                    // Oval fish
+                    ellipse(0, 0, this.size, this.size * 0.6);
+                } else if (this.fishType === 1) {
+                    // Triangular fish
+                    triangle(-this.size/2, 0, this.size/3, -this.size/3, this.size/3, this.size/3);
+                } else {
+                    // Round fish
+                    circle(0, 0, this.size * 0.8);
+                }
+                
+                // Tail fin with animation
+                let tailWag = sin(this.tailOffset) * 0.3;
+                fill(h, s, b - 10);
+                push();
+                translate(-this.size/2, 0);
+                rotate(tailWag);
+                triangle(0, 0, -this.size/2, -this.size/4, -this.size/2, this.size/4);
+                pop();
+                
+                // Eye
+                fill(0, 0, 100);
+                circle(this.size/4, -this.size/8, this.size/6);
+                fill(0, 0, 0);
+                circle(this.size/4 + this.size/12, -this.size/8, this.size/12);
+                
+                // Fins
+                fill(h, s, b - 15);
+                ellipse(0, this.size/3, this.size/3, this.size/6);
+                ellipse(0, -this.size/3, this.size/3, this.size/6);
+                
+                pop();
+            }
+            
+            updateColorTheme() {
+                this.colorIndex = floor(random(getCurrentColorPalette().length));
+            }
+            
+            isDead() {
+                return this.life <= 0;
+            }
+        }
+        
+        class Bubble {
+            constructor(x, y) {
+                this.pos = createVector(x, y);
+                this.vel = createVector(random(-0.5, 0.5), random(-1, -2));
+                this.size = random(3, 12);
+                this.wobble = random(TWO_PI);
+            }
+            
+            update() {
+                this.wobble += 0.1;
+                this.vel.x = sin(this.wobble) * 0.5;
+                this.pos.add(this.vel);
+                
+                if (this.pos.x < 0) this.pos.x = width;
+                if (this.pos.x > width) this.pos.x = 0;
+            }
+            
+            display() {
+                fill(200, 30, 90, 60);
+                stroke(200, 20, 100, 80);
+                strokeWeight(1);
+                circle(this.pos.x, this.pos.y, this.size);
+                
+                // Bubble highlight
+                fill(200, 10, 100, 40);
+                noStroke();
+                circle(this.pos.x - this.size/4, this.pos.y - this.size/4, this.size/3);
+            }
+            
+            isAtSurface() {
+                return this.pos.y < -this.size;
+            }
+        }
+        
+        class Particle {
+            constructor(x, y) {
+                this.pos = createVector(x, y);
+                this.vel = createVector(random(-1, 1), random(-1, 1));
+                this.acc = createVector(0, 0);
+                this.maxSpeed = 3;
+                this.maxForce = 0.2;
+                this.size = random(2, 8);
+                this.colorIndex = floor(random(getCurrentColorPalette().length));
+                this.hueShift = 0;
+                this.life = 255;
+                this.maxLife = 255;
+                this.trail = [];
+            }
+            
+            update() {
+                this.vel.add(this.acc);
+                this.vel.limit(this.maxSpeed);
+                this.pos.add(this.vel);
+                this.acc.mult(0);
+                
+                // Add to trail
+                this.trail.push(this.pos.copy());
+                if (this.trail.length > 10) {
+                    this.trail.shift();
+                }
+                
+                // Wrap around edges
+                if (this.pos.x < 0) this.pos.x = width;
+                if (this.pos.x > width) this.pos.x = 0;
+                if (this.pos.y < 0) this.pos.y = height;
+                if (this.pos.y > height) this.pos.y = 0;
+                
+                // Subtle color evolution
+                this.hueShift += 0.2;
+            }
+            
+            applyForce(force) {
+                this.acc.add(force);
+            }
+            
+            display() {
+                let palette = getCurrentColorPalette();
+                let baseColor = palette[this.colorIndex];
+                let h = hue(baseColor) + this.hueShift;
+                let s = saturation(baseColor);
+                let b = brightness(baseColor);
+                
+                // Draw trail
+                for (let i = 0; i < this.trail.length; i++) {
+                    let alpha = map(i, 0, this.trail.length - 1, 0, 30);
+                    fill(h, s, b * 0.8, alpha);
+                    noStroke();
+                    circle(this.trail[i].x, this.trail[i].y, this.size * 0.3);
+                }
+                
+                // Draw particle with glow effect
+                for (let r = this.size * 2; r > 0; r--) {
+                    let alpha = map(r, 0, this.size * 2, 60, 5);
+                    fill(h, s, b, alpha);
+                    noStroke();
+                    circle(this.pos.x, this.pos.y, r);
+                }
+                
+                // Core particle
+                fill(h, s, min(b + 20, 100));
+                circle(this.pos.x, this.pos.y, this.size);
+            }
+            
+            updateColorTheme() {
+                // Reassign color when theme changes
+                this.colorIndex = floor(random(getCurrentColorPalette().length));
+            }
+            
+            isDead() {
+                return this.life <= 0;
+            }
+        }
+        
+        class Attractor {
+            constructor(x, y) {
+                this.pos = createVector(x, y);
+                this.mass = 20;
+                this.angle = 0;
+            }
+            
+            update() {
+                this.angle += 0.02;
+                this.pos.x += cos(this.angle) * 2;
+                this.pos.y += sin(this.angle * 1.5) * 1.5;
+                
+                // Keep in bounds
+                if (this.pos.x < 50) this.pos.x = 50;
+                if (this.pos.x > width - 50) this.pos.x = width - 50;
+                if (this.pos.y < 50) this.pos.y = 50;
+                if (this.pos.y > height - 50) this.pos.y = height - 50;
+            }
+            
+            display() {
+                let palette = getCurrentColorPalette();
+                let attractorColor = palette[0];
+                let h = hue(attractorColor);
+                let s = saturation(attractorColor);
+                let b = brightness(attractorColor);
+                
+                // Pulsing attractor
+                let pulse = sin(time * 5) * 0.3 + 0.7;
+                for (let r = 40; r > 0; r -= 5) {
+                    let alpha = map(r, 0, 40, 40, 3);
+                    fill(h, s, b, alpha * pulse);
+                    noStroke();
+                    circle(this.pos.x, this.pos.y, r);
+                }
+            }
+        }
+        
+        class Explosion {
+            constructor(x, y) {
+                this.pos = createVector(x, y);
+                this.particles = [];
+                this.life = 60;
+                
+                let palette = getCurrentColorPalette();
+                
+                for (let i = 0; i < 30; i++) {
+                    let angle = random(TWO_PI);
+                    let speed = random(5, 15);
+                    let colorChoice = random(palette);
+                    this.particles.push({
+                        pos: this.pos.copy(),
+                        vel: createVector(cos(angle) * speed, sin(angle) * speed),
+                        hue: hue(colorChoice),
+                        sat: saturation(colorChoice),
+                        bright: brightness(colorChoice),
+                        size: random(3, 10),
+                        life: 60
+                    });
+                }
+            }
+            
+            update() {
+                this.life--;
+                for (let p of this.particles) {
+                    p.pos.add(p.vel);
+                    p.vel.mult(0.98);
+                    p.life--;
+                    p.size *= 0.99;
+                }
+            }
+            
+            display() {
+                for (let p of this.particles) {
+                    if (p.life > 0) {
+                        let alpha = map(p.life, 0, 60, 0, 80);
+                        fill(p.hue, p.sat, p.bright, alpha);
+                        noStroke();
+                        circle(p.pos.x, p.pos.y, p.size);
+                    }
+                }
+            }
+            
+            isDead() {
+                return this.life <= 0;
+            }
+        }
+        
+        function applyOrbitForces(particle) {
+            for (let attractor of attractors) {
+                let force = p5.Vector.sub(attractor.pos, particle.pos);
+                let distance = force.mag();
+                distance = constrain(distance, 5, 50);
+                let strength = (attractor.mass * particle.size) / (distance * distance);
+                force.normalize();
+                force.mult(strength * 0.1);
+                particle.applyForce(force);
+            }
+        }
+        
+        function applyFlowField(particle) {
+            let angle = noise(particle.pos.x * 0.01, particle.pos.y * 0.01, time) * TWO_PI * 4;
+            let force = createVector(cos(angle), sin(angle));
+            force.mult(0.1);
+            particle.applyForce(force);
+        }
+        
+        function applyMagneticForces(particle) {
+            let mouse = createVector(mouseX, mouseY);
+            let force = p5.Vector.sub(mouse, particle.pos);
+            let distance = force.mag();
+            distance = constrain(distance, 5, 100);
+            let strength = 50 / (distance * distance);
+            force.normalize();
+            force.mult(strength);
+            particle.applyForce(force);
+        }
+        
+        function applyFishForces(fish) {
+            // Flocking behavior
+            let sep = separate(fish);
+            let ali = align(fish);
+            let coh = cohesion(fish);
+            let seek = seekMouse(fish);
+            
+            // Weight the forces
+            sep.mult(2.0);
+            ali.mult(1.0);
+            coh.mult(1.0);
+            seek.mult(1.5);
+            
+            fish.applyForce(sep);
+            fish.applyForce(ali);
+            fish.applyForce(coh);
+            fish.applyForce(seek);
+            
+            // Add gentle ocean current
+            let current = createVector(0.01, sin(time + fish.pos.y * 0.01) * 0.02);
+            fish.applyForce(current);
+        }
+        
+        function separate(fish) {
+            let desiredSeparation = fish.size * 2;
+            let steer = createVector(0, 0);
+            let count = 0;
+            
+            for (let other of particles) {
+                let d = p5.Vector.dist(fish.pos, other.pos);
+                if (d > 0 && d < desiredSeparation) {
+                    let diff = p5.Vector.sub(fish.pos, other.pos);
+                    diff.normalize();
+                    diff.div(d); // Weight by distance
+                    steer.add(diff);
+                    count++;
+                }
+            }
+            
+            if (count > 0) {
+                steer.div(count);
+                steer.normalize();
+                steer.mult(fish.maxSpeed);
+                steer.sub(fish.vel);
+                steer.limit(fish.maxForce);
+            }
+            return steer;
+        }
+        
+        function align(fish) {
+            let neighborDist = fish.size * 3;
+            let sum = createVector(0, 0);
+            let count = 0;
+            
+            for (let other of particles) {
+                let d = p5.Vector.dist(fish.pos, other.pos);
+                if (d > 0 && d < neighborDist) {
+                    sum.add(other.vel);
+                    count++;
+                }
+            }
+            
+            if (count > 0) {
+                sum.div(count);
+                sum.normalize();
+                sum.mult(fish.maxSpeed);
+                let steer = p5.Vector.sub(sum, fish.vel);
+                steer.limit(fish.maxForce);
+                return steer;
+            }
+            return createVector(0, 0);
+        }
+        
+        function cohesion(fish) {
+            let neighborDist = fish.size * 3;
+            let sum = createVector(0, 0);
+            let count = 0;
+            
+            for (let other of particles) {
+                let d = p5.Vector.dist(fish.pos, other.pos);
+                if (d > 0 && d < neighborDist) {
+                    sum.add(other.pos);
+                    count++;
+                }
+            }
+            
+            if (count > 0) {
+                sum.div(count);
+                let steer = p5.Vector.sub(sum, fish.pos);
+                steer.normalize();
+                steer.mult(fish.maxSpeed);
+                steer.sub(fish.vel);
+                steer.limit(fish.maxForce);
+                return steer;
+            }
+            return createVector(0, 0);
+        }
+        
+        function seekMouse(fish) {
+            let mouse = createVector(mouseX, mouseY);
+            let desired = p5.Vector.sub(mouse, fish.pos);
+            desired.normalize();
+            desired.mult(fish.maxSpeed);
+            
+            let steer = p5.Vector.sub(desired, fish.vel);
+            steer.limit(fish.maxForce * 0.5); // Gentler attraction
+            return steer;
+        }
+        
+        function drawConnections() {
+            let palette = getCurrentColorPalette();
+            let connectionColor = palette[1];
+            let h = hue(connectionColor);
+            let s = saturation(connectionColor);
+            let b = brightness(connectionColor);
+            
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    let distance = p5.Vector.dist(particles[i].pos, particles[j].pos);
+                    if (distance < 100) {
+                        let alpha = map(distance, 0, 100, 30, 0);
+                        stroke(h, s, b, alpha);
+                        strokeWeight(0.5);
+                        line(particles[i].pos.x, particles[i].pos.y, 
+                             particles[j].pos.x, particles[j].pos.y);
+                    }
+                }
+            }
+        }
+        
+        function mousePressed() {
+            if (isFishMode) {
+                // Fish scatter away from click
+                for (let fish of particles) {
+                    let force = p5.Vector.sub(fish.pos, createVector(mouseX, mouseY));
+                    force.normalize();
+                    force.mult(5);
+                    fish.applyForce(force);
+                }
+            } else {
+                explosions.push(new Explosion(mouseX, mouseY));
+            }
+        }
+        
+        function keyPressed() {
+            if (key === ' ') {
+                mode = (mode + 1) % 3;
+            } else if (key === 'c' || key === 'C') {
+                colorTheme = (colorTheme + 1) % 3;
+                // Update all particles to use new color theme
+                for (let particle of particles) {
+                    particle.updateColorTheme();
+                }
+            } else if (key === 'f' || key === 'F') {
+                isFishMode = !isFishMode;
+                particles = [];
+                explosions = [];
+                for (let i = 0; i < maxParticles; i++) {
+                    if (isFishMode) {
+                        particles.push(new Fish(random(width), random(height)));
+                    } else {
+                        particles.push(new Particle(random(width), random(height)));
+                    }
+                }
+            } else if (key === 'r' || key === 'R') {
+                particles = [];
+                explosions = [];
+                for (let i = 0; i < maxParticles; i++) {
+                    if (isFishMode) {
+                        particles.push(new Fish(random(width), random(height)));
+                    } else {
+                        particles.push(new Particle(random(width), random(height)));
+                    }
+                }
+            } else if (key === '+' || key === '=') {
+                maxParticles = min(maxParticles + 20, 500);
+            } else if (key === '-') {
+                maxParticles = max(maxParticles - 20, 50);
+            }
+        }
+        
+        function windowResized() {
+            resizeCanvas(windowWidth, windowHeight);
+        }
+    </script>
+</body>
+</html>
