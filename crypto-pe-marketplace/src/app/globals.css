@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --crypto-blue: #1a365d;
+  --crypto-teal: #0f766e;
+  --crypto-emerald: #065f46;
+  --accent-orange: #ea580c;
+  --accent-amber: #d97706;
+  --gradient-from: #0f172a;
+  --gradient-to: #1e293b;
+  --shadow-color: 0, 0, 0;
+  --border-subtle: #e2e8f0;
+  --glass-bg: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.15);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Inter', system-ui, sans-serif;
+  line-height: 1.6;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.btn-primary {
+  @apply bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-semibold py-4 px-10 rounded-2xl transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-teal-500/20 hover:-translate-y-0.5 border border-teal-500/20;
+}
+
+.btn-secondary {
+  @apply bg-white/95 backdrop-blur-sm text-slate-800 border-2 border-slate-200/80 hover:border-slate-300 hover:bg-white font-semibold py-4 px-10 rounded-2xl transition-all duration-300 shadow-xl hover:shadow-2xl hover:-translate-y-0.5;
+}
+
+.btn-accent {
+  @apply bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold py-4 px-10 rounded-2xl transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-orange-500/20 hover:-translate-y-0.5 border border-orange-400/20;
+}
+
+.glass-card {
+  @apply bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl;
+}
+
+.professional-shadow {
+  box-shadow: 0 25px 50px -12px rgba(var(--shadow-color), 0.25),
+              0 0 0 1px rgba(var(--shadow-color), 0.05);
+}
+
+.depth-shadow {
+  box-shadow: 0 20px 25px -5px rgba(var(--shadow-color), 0.1),
+              0 10px 10px -5px rgba(var(--shadow-color), 0.04),
+              0 0 0 1px rgba(var(--shadow-color), 0.05);
+}
+
+.section-padding {
+  @apply py-16 lg:py-24;
+}
+
+.container-custom {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+.text-gradient {
+  @apply bg-gradient-to-r from-teal-600 to-emerald-600 bg-clip-text text-transparent;
+}
+
+.bg-gradient-primary {
+  background: linear-gradient(135deg, var(--gradient-from) 0%, var(--gradient-to) 100%);
+}
